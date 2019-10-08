@@ -3,6 +3,7 @@
 #include <iostream>
 #include <vector>
 #include <set>
+#include <mutex>
 #include <thread>
 #include <cstring>
 #include <algorithm>
@@ -36,7 +37,6 @@ public:
 	}
 
 	~VulkanGLFWApp() {
-		bQuit = true;
 		pthMsgLoop->join();
 		delete pthMsgLoop;
 	}
@@ -73,7 +73,7 @@ private:
 	void initVulkan() {
 		
 		// create a UniqueInstance
-		createInstance("Vulkan GLFW", "Vulkan HPP");
+		createInstance("Vulkan GLFW", "Vulkan");
 		setupDebugCallback();
 		createSurface();
 		pickPhysicalDevice();
@@ -102,10 +102,13 @@ private:
 	}
 
 	void mainLoop() {
+
+		updateUniformBuffer();
+
 		while (!glfwWindowShouldClose(m_Window)) {
 			glfwPollEvents();
 
-			updateUniformBuffer();
+			
 			drawFrame();
 		}
 		vkDeviceWaitIdle(m_Device);
@@ -120,6 +123,10 @@ private:
 
 		vkDestroyImage(m_Device, m_TextureImage, nullptr);
 		vkFreeMemory(m_Device, m_TextureImageMemory, nullptr);
+
+		vkDestroyBuffer(m_Device, m_TexStagingBuffer, nullptr);
+		vkFreeMemory(m_Device, m_TexStagingBufferMemory, nullptr);
+
 
 		vkDestroyDescriptorPool(m_Device, m_DescriptorPool, nullptr);
 		vkDestroyDescriptorSetLayout(m_Device, m_DescriptorSetLayout, nullptr);
@@ -199,15 +206,7 @@ private:
 	void createCommandPool();
 	void createCommandBuffers();
 
-	void createSemaphores() {
-		VkSemaphoreCreateInfo semaphoreInfo = {};
-		semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-		if (vkCreateSemaphore(m_Device, &semaphoreInfo, nullptr, &m_ImageAvailableSemaphore) != VK_SUCCESS ||
-			vkCreateSemaphore(m_Device, &semaphoreInfo, nullptr, &m_RenderFinishedSemaphore) != VK_SUCCESS) {
-			throw std::runtime_error("failed to create semaphores!");
-		}
-	}
-
+	void createSemaphores();
 	void drawFrame();
 
 	void cleanupSwapChain();
@@ -219,7 +218,6 @@ private:
 		VulkanGLFWApp* app = reinterpret_cast<VulkanGLFWApp*>(glfwGetWindowUserPointer(window));
 		app->recreateSwapChain();
 	}
-
 
 	void createVertexBuffer();
 	void createIndexBuffer();
@@ -238,44 +236,7 @@ private:
 	void createDescriptorPool();
 	void createDescriptorSet();
 
-	void createTextureImage() {
-
-		std::vector<unsigned char> image(4 * m_nWidth * m_nHeight);
-		for (int j = 0; j < m_nHeight; ++j) {
-			for (int i = 0; i < m_nWidth; ++i) {
-				size_t index = j * m_nWidth + i;
-				image[4 * index + 0] = 0xFF * (j / 10 % 2)*(i / 10 % 2); // R
-				image[4 * index + 1] = 0xFF * (j / 13 % 2)*(i / 13 % 2); // G
-				image[4 * index + 2] = 0xFF * (j / 17 % 2)*(i / 17 % 2); // B
-				image[4 * index + 3] = 0xFF;                   // A
-			}
-		}
-
-		VkDeviceSize imageSize = m_nWidth * m_nHeight * 4;
-		VkBuffer stagingBuffer;
-		VkDeviceMemory stagingBufferMemory;
-		createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-
-		void* data;
-		vkMapMemory(m_Device, stagingBufferMemory, 0, imageSize, 0, &data);
-		memcpy(data, image.data(), static_cast<size_t>(imageSize));
-		vkUnmapMemory(m_Device, stagingBufferMemory);
-
-
-		createImage(m_nWidth, m_nHeight, VK_FORMAT_R8G8B8A8_UNORM,
-			VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-			m_TextureImage, m_TextureImageMemory);
-
-		
-		transitionImageLayout(m_TextureImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-		copyBufferToImage(stagingBuffer, m_TextureImage, static_cast<uint32_t>(m_nWidth), static_cast<uint32_t>(m_nHeight));
-		transitionImageLayout(m_TextureImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-
-		vkDestroyBuffer(m_Device, stagingBuffer, nullptr);
-		vkFreeMemory(m_Device, stagingBufferMemory, nullptr);
-
-	}
+	void createTextureImage();
 
 	void createImage(uint32_t width, uint32_t height, VkFormat format,
 		VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties,
@@ -284,54 +245,9 @@ private:
 	void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
 	void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 
-	void createTextureImageView() {
-		m_TextureImageView = createImageView(m_TextureImage, VK_FORMAT_R8G8B8A8_UNORM);
-	}
-
-	VkImageView createImageView(VkImage image, VkFormat format) {
-		VkImageViewCreateInfo viewInfo = {};
-		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		viewInfo.image = image;
-		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		viewInfo.format = format;
-		viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		viewInfo.subresourceRange.baseMipLevel = 0;
-		viewInfo.subresourceRange.levelCount = 1;
-		viewInfo.subresourceRange.baseArrayLayer = 0;
-		viewInfo.subresourceRange.layerCount = 1;
-
-		VkImageView imageView;
-		if (vkCreateImageView(m_Device, &viewInfo, nullptr, &imageView) != VK_SUCCESS) {
-			throw std::runtime_error("failed to create texture image view!");
-		}
-
-		return imageView;
-	}
-
-
-	void createTextureSampler() {
-		VkSamplerCreateInfo samplerInfo = {};
-		samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-		samplerInfo.magFilter = VK_FILTER_LINEAR;
-		samplerInfo.minFilter = VK_FILTER_LINEAR;
-		samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerInfo.anisotropyEnable = VK_TRUE;
-		samplerInfo.maxAnisotropy = 16;
-		samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-		samplerInfo.unnormalizedCoordinates = VK_FALSE;
-		samplerInfo.compareEnable = VK_FALSE;
-		samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-		samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-		samplerInfo.mipLodBias = 0.0f;
-		samplerInfo.minLod = 0.0f;
-		samplerInfo.maxLod = 0.0f;
-
-		if (vkCreateSampler(m_Device, &samplerInfo, nullptr, &m_TextureSampler) != VK_SUCCESS) {
-			throw std::runtime_error("failed to create texture sampler!");
-		}
-	}
+	void createTextureImageView();
+	VkImageView createImageView(VkImage image, VkFormat format);
+	void createTextureSampler();
 
 
 private:
@@ -339,8 +255,8 @@ private:
 	int m_nWidth, m_nHeight;
 
 	bool bReady = false;
-	bool bQuit = false;
-	//std::mutex mtx;
+	std::mutex mtx;
+
 	std::thread *pthMsgLoop = NULL;
 
 	GLFWwindow* m_Window;
@@ -438,6 +354,9 @@ private:
 	VkImageView m_TextureImageView;
 	VkSampler m_TextureSampler;
 
+
+	VkBuffer m_TexStagingBuffer;
+	VkDeviceMemory m_TexStagingBufferMemory;
 
 
 

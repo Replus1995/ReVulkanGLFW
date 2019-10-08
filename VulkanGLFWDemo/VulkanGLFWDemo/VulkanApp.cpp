@@ -727,6 +727,16 @@ void VulkanGLFWApp::createCommandBuffers()
 
 }
 
+void VulkanGLFWApp::createSemaphores()
+{
+	VkSemaphoreCreateInfo semaphoreInfo = {};
+	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+	if (vkCreateSemaphore(m_Device, &semaphoreInfo, nullptr, &m_ImageAvailableSemaphore) != VK_SUCCESS ||
+		vkCreateSemaphore(m_Device, &semaphoreInfo, nullptr, &m_RenderFinishedSemaphore) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create semaphores!");
+	}
+}
+
 void VulkanGLFWApp::drawFrame()
 {
 
@@ -821,9 +831,21 @@ void VulkanGLFWApp::createVertexBuffer()
 	VkDeviceMemory stagingBufferMemory;
 	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
 
+
+	std::vector<Vertex> new_vertices;
+	new_vertices.resize(m_Vertices.size());
+	new_vertices.assign(m_Vertices.begin(), m_Vertices.end());
+	float aspect_ratio = (float)m_nWidth / (float)m_nHeight;
+
+	for (size_t i = 0; i < new_vertices.size(); i++)
+	{
+		new_vertices[i].pos.x *= aspect_ratio;
+		new_vertices[i].pos *= 2;
+	}
+
 	void* data;
 	vkMapMemory(m_Device, stagingBufferMemory, 0, bufferSize, 0, &data);
-	memcpy(data, m_Vertices.data(), (size_t)bufferSize);
+	memcpy(data, new_vertices.data(), (size_t)bufferSize);
 	vkUnmapMemory(m_Device, stagingBufferMemory);
 
 	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_VertexBuffer, m_VertexBufferMemory);
@@ -915,13 +937,19 @@ void VulkanGLFWApp::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceS
 }
 void VulkanGLFWApp::updateUniformBuffer()
 {
-	static auto startTime = std::chrono::high_resolution_clock::now();
+	/*static auto startTime = std::chrono::high_resolution_clock::now();
 	auto currentTime = std::chrono::high_resolution_clock::now();
 	float time = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - startTime).count() / 1000.0f;
 
 	UniformBufferObject ubo = {};
 	ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	ubo.proj = glm::perspective(glm::radians(45.0f), m_SwapChainExtent.width / (float)m_SwapChainExtent.height, 0.1f, 10.0f);
+	ubo.proj[1][1] *= -1;*/
+
+	UniformBufferObject ubo = {};
+	ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	ubo.view = glm::lookAt(glm::vec3(0.0f, 0.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 	ubo.proj = glm::perspective(glm::radians(45.0f), m_SwapChainExtent.width / (float)m_SwapChainExtent.height, 0.1f, 10.0f);
 	ubo.proj[1][1] *= -1;
 
@@ -1059,6 +1087,42 @@ void VulkanGLFWApp::createDescriptorSet()
 
 }
 
+void VulkanGLFWApp::createTextureImage()
+{
+
+	std::vector<unsigned char> image(4 * m_nWidth * m_nHeight);
+	for (int j = 0; j < m_nHeight; ++j) {
+		for (int i = 0; i < m_nWidth; ++i) {
+			size_t index = j * m_nWidth + i;
+			image[4 * index + 0] = 0xFF * ((float)j / (float)m_nHeight)*((float)i / (float)m_nWidth); // R
+			image[4 * index + 2] = 0xFF * (1.0f - (float)j / (float)m_nHeight)*(1.0f - (float)i / (float)m_nWidth); // B
+			image[4 * index + 1] = std::max(0, 0xFF - image[4 * index + 0] - image[4 * index + 2]); // G
+			image[4 * index + 3] = 0xFF;                   // A
+		}
+	}
+
+	VkDeviceSize imageSize = m_nWidth * m_nHeight * 4;
+	/*VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;*/
+	createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, m_TexStagingBuffer, m_TexStagingBufferMemory);
+
+	void* data;
+	vkMapMemory(m_Device, m_TexStagingBufferMemory, 0, imageSize, 0, &data);
+	memcpy(data, image.data(), static_cast<size_t>(imageSize));
+	vkUnmapMemory(m_Device, m_TexStagingBufferMemory);
+
+
+	createImage(m_nWidth, m_nHeight, VK_FORMAT_R8G8B8A8_UNORM,
+		VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		m_TextureImage, m_TextureImageMemory);
+
+
+	transitionImageLayout(m_TextureImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	copyBufferToImage(m_TexStagingBuffer, m_TextureImage, static_cast<uint32_t>(m_nWidth), static_cast<uint32_t>(m_nHeight));
+	transitionImageLayout(m_TextureImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+}
+
 void VulkanGLFWApp::createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage & image, VkDeviceMemory & imageMemory)
 {
 	VkImageCreateInfo imageInfo = {};
@@ -1178,6 +1242,57 @@ void VulkanGLFWApp::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t w
 	);
 
 	endSingleTimeCommands(commandBuffer);
+}
+
+void VulkanGLFWApp::createTextureImageView()
+{
+	m_TextureImageView = createImageView(m_TextureImage, VK_FORMAT_R8G8B8A8_UNORM);
+}
+
+VkImageView VulkanGLFWApp::createImageView(VkImage image, VkFormat format)
+{
+	VkImageViewCreateInfo viewInfo = {};
+	viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	viewInfo.image = image;
+	viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	viewInfo.format = format;
+	viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	viewInfo.subresourceRange.baseMipLevel = 0;
+	viewInfo.subresourceRange.levelCount = 1;
+	viewInfo.subresourceRange.baseArrayLayer = 0;
+	viewInfo.subresourceRange.layerCount = 1;
+
+	VkImageView imageView;
+	if (vkCreateImageView(m_Device, &viewInfo, nullptr, &imageView) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create texture image view!");
+	}
+
+	return imageView;
+}
+
+void VulkanGLFWApp::createTextureSampler()
+{
+	VkSamplerCreateInfo samplerInfo = {};
+	samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	samplerInfo.magFilter = VK_FILTER_LINEAR;
+	samplerInfo.minFilter = VK_FILTER_LINEAR;
+	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samplerInfo.anisotropyEnable = VK_TRUE;
+	samplerInfo.maxAnisotropy = 16;
+	samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+	samplerInfo.unnormalizedCoordinates = VK_FALSE;
+	samplerInfo.compareEnable = VK_FALSE;
+	samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	samplerInfo.mipLodBias = 0.0f;
+	samplerInfo.minLod = 0.0f;
+	samplerInfo.maxLod = 0.0f;
+
+	if (vkCreateSampler(m_Device, &samplerInfo, nullptr, &m_TextureSampler) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create texture sampler!");
+	}
 }
 
 bool VulkanGLFWApp::checkValidationLayerSupport()
