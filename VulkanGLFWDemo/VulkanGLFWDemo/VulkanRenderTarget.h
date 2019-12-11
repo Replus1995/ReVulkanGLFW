@@ -25,7 +25,7 @@ public:
 	inline const VkAttachmentReference* GetInputAttachmentReferences() const { return  m_InputReferences.size() > 0 ? m_InputReferences.data() : nullptr; }
 
 protected:
-	void SetExtent(uint32_t InWidth, uint32_t InHeight, uint32_t InDepth = 0);
+	void SetExtent(uint32_t InWidth, uint32_t InHeight, uint32_t InDepth = 1);
 
 private:
 

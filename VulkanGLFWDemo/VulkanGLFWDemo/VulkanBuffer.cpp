@@ -17,7 +17,7 @@ FVulkanBuffer::~FVulkanBuffer()
 	vkFreeMemory(m_Device->GetLogicalDevice(), m_Memory, nullptr);
 }
 
-void FVulkanBuffer::UpdateBuffer(const void * InSrcData, uint64_t InSrcDataSize, FVulkanCommandBuffer* InCmdBuffer)
+void FVulkanBuffer::UpdateBuffer(FVulkanCommandBuffer* InCmdBuffer, const void * InSrcData, uint64_t InSrcDataSize)
 {
 	if (InSrcDataSize > m_BufferSize) return;
 
@@ -30,7 +30,7 @@ void FVulkanBuffer::UpdateBuffer(const void * InSrcData, uint64_t InSrcDataSize,
 	memcpy(dstData, InSrcData, (size_t)InSrcDataSize);
 	vkUnmapMemory(m_Device->GetLogicalDevice(), stagingBufferMemory);
 
-	CopyBuffer(stagingBuffer, m_Buffer, InSrcDataSize, InCmdBuffer);
+	CopyBuffer(InCmdBuffer, stagingBuffer, m_Buffer, InSrcDataSize);
 
 	vkDestroyBuffer(m_Device->GetLogicalDevice(), stagingBuffer, nullptr);
 	vkFreeMemory(m_Device->GetLogicalDevice(), stagingBufferMemory, nullptr);
@@ -64,7 +64,7 @@ void FVulkanBuffer::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, Vk
 	vkBindBufferMemory(m_Device->GetLogicalDevice(), buffer, bufferMemory, 0);
 }
 
-void FVulkanBuffer::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, FVulkanCommandBuffer * InCmdBuffer)
+void FVulkanBuffer::CopyBuffer(FVulkanCommandBuffer* InCmdBuffer, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
 {
 
 	InCmdBuffer->Begin();

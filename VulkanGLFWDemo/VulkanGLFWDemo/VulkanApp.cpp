@@ -1141,6 +1141,7 @@ void VulkanGLFWApp::createImage(uint32_t width, uint32_t height, VkFormat format
 	imageInfo.usage = usage;
 	imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	imageInfo.flags = 0;
 
 	if (vkCreateImage(m_Device, &imageInfo, nullptr, &image) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create image!");

@@ -119,6 +119,9 @@
     <ClInclude Include="VulkanMemory.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="VulkanTexture.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="shader\shader.frag">
