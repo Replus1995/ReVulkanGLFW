@@ -74,17 +74,27 @@ private:
 		
 		// create a UniqueInstance
 		createInstance("Vulkan GLFW", "Vulkan");
-		setupDebugCallback();
 		createSurface();
 		pickPhysicalDevice();
 		createLogicalDevice();
+		setupDebugCallback();
+		
+
 		createSwapChain();
-		createImageViews();
-		createRenderPass();
-		createDescriptorSetLayout();
-		createGraphicsPipeline();
-		createFramebuffers();
 		createCommandPool();
+		createCommandBuffers();
+		createImageViews();
+
+		createDescriptorSetLayout();
+		createDescriptorPool();
+
+		createRenderPass();
+		createFramebuffers();
+
+		createGraphicsPipeline();
+	
+
+		
 
 		createTextureImage();
 		createTextureImageView();
@@ -93,10 +103,12 @@ private:
 		createVertexBuffer();
 		createIndexBuffer();
 		createUniformBuffer();
-		createDescriptorPool();
+
+		
+		
 		createDescriptorSet();
 
-		createCommandBuffers();
+		bindCommandBuffers();
 		createSemaphores();
 
 	}
@@ -143,8 +155,8 @@ private:
 		vkDestroySemaphore(m_Device, m_ImageAvailableSemaphore, nullptr);
 		vkDestroyCommandPool(m_Device, m_CommandPool, nullptr);
 		
-		vkDestroyDevice(m_Device, nullptr);
 		DestroyDebugReportCallbackEXT(m_Instance, debug_callback, nullptr);
+		vkDestroyDevice(m_Device, nullptr);
 		vkDestroySurfaceKHR(m_Instance, m_Surface, nullptr);
 		vkDestroyInstance(m_Instance, nullptr);
 
@@ -205,6 +217,8 @@ private:
 	void createFramebuffers();
 	void createCommandPool();
 	void createCommandBuffers();
+
+	void bindCommandBuffers();
 
 	void createSemaphores();
 	void drawFrame();

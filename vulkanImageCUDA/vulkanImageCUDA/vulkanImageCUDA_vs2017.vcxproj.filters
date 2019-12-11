@@ -6,6 +6,7 @@
   <ItemGroup>
     <ClInclude Include="linmath.h" />
     <ClInclude Include="ValkanCudaApp.h" />
+    <ClInclude Include="WindowsSecurityAttributes.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Shader">

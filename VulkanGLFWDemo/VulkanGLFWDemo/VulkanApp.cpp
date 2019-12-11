@@ -359,7 +359,7 @@ void VulkanGLFWApp::createSwapChain()
 	QueueFamilyIndices indices = findQueueFamilies(m_PhysicalDevice);
 	uint32_t queueFamilyIndices[] = { (uint32_t)indices.GraphicsFamilyIndex, (uint32_t)indices.PresentFamilyIndex };
 
-	if (indices.PresentFamilyIndex != indices.PresentFamilyIndex) {
+	if (indices.GraphicsFamilyIndex != indices.PresentFamilyIndex) {
 		createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
 		createInfo.queueFamilyIndexCount = 2;
 		createInfo.pQueueFamilyIndices = queueFamilyIndices;
@@ -616,7 +616,6 @@ void VulkanGLFWApp::createGraphicsPipeline()
 
 VkShaderModule VulkanGLFWApp::createShaderModule(const std::vector<char>& code)
 {
-
 	VkShaderModuleCreateInfo createInfo = {};
 	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
 	createInfo.codeSize = code.size();
@@ -673,8 +672,7 @@ void VulkanGLFWApp::createCommandPool()
 
 void VulkanGLFWApp::createCommandBuffers()
 {
-	m_CommandBuffers.resize(m_SwapChainFramebuffers.size());
-
+	m_CommandBuffers.resize(m_SwapChainImages.size());
 
 	VkCommandBufferAllocateInfo allocInfo = {};
 	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -686,6 +684,10 @@ void VulkanGLFWApp::createCommandBuffers()
 		throw std::runtime_error("failed to allocate command buffers!");
 	}
 
+}
+
+void VulkanGLFWApp::bindCommandBuffers()
+{
 	for (size_t i = 0; i < m_CommandBuffers.size(); i++) {
 		VkCommandBufferBeginInfo beginInfo = {};
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -715,7 +717,7 @@ void VulkanGLFWApp::createCommandBuffers()
 		vkCmdBindIndexBuffer(m_CommandBuffers[i], m_IndexBuffer, 0, VK_INDEX_TYPE_UINT16);
 
 		vkCmdBindDescriptorSets(m_CommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineLayout, 0, 1, &m_DescriptorSet, 0, nullptr);
-		
+
 
 		vkCmdDrawIndexed(m_CommandBuffers[i], static_cast<uint32_t>(m_Indices.size()), 1, 0, 0, 0);
 		//vkCmdDraw(m_CommandBuffers[i], static_cast<uint32_t>(m_Vertices.size()), 1, 0, 0);
@@ -724,7 +726,6 @@ void VulkanGLFWApp::createCommandBuffers()
 			throw std::runtime_error("failed to record command buffer!");
 		}
 	}
-
 }
 
 void VulkanGLFWApp::createSemaphores()
@@ -814,13 +815,14 @@ void VulkanGLFWApp::recreateSwapChain()
 	vkDeviceWaitIdle(m_Device);
 
 	cleanupSwapChain();
+	createCommandBuffers();
 
 	createSwapChain();
 	createImageViews();
 	createRenderPass();
 	createGraphicsPipeline();
 	createFramebuffers();
-	createCommandBuffers();
+	
 }
 
 void VulkanGLFWApp::createVertexBuffer()

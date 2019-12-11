@@ -9,11 +9,11 @@ int main(int argc, char** argv) {
 			(char**)&image_filename);
 	}
 
-	vulkanImageCUDA app;
+	vulkanImageCUDA app(1920,1080);
 
 	try {
 		// This app only works on ppm images
-		app.loadImageData(image_filename);
+		//app.loadImageData(image_filename);
 		app.run();
 	}
 	catch (const std::exception& e) {

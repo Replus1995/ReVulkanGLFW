@@ -162,6 +162,9 @@ __global__ void d_boxfilter_rgba_y(cudaSurfaceObject_t* dstSurfMipMapArray,
   }
 }
 
+
+
+
 void vulkanImageCUDA::cudaUpdateVkImage()
 {
 	cudaVkSemaphoreWait(cudaExtVkUpdateCudaSemaphore);
@@ -169,12 +172,12 @@ void vulkanImageCUDA::cudaUpdateVkImage()
 	int nthreads = 128;
 
 	/*Perform 2D box filter on image using CUDA */
-	d_boxfilter_rgba_x << <imageHeight / nthreads, nthreads, 0, streamToRun >> > (
-		d_surfaceObjectListTemp, textureObjMipMapInput, imageWidth, imageHeight,
+	d_boxfilter_rgba_x << <m_imageHeight / nthreads, nthreads, 0, streamToRun >> > (
+		d_surfaceObjectListTemp, textureObjMipMapInput, m_imageWidth, m_imageHeight,
 		mipLevels, filter_radius);
 
-	d_boxfilter_rgba_y << <imageWidth / nthreads, nthreads, 0, streamToRun >> > (
-		d_surfaceObjectList, d_surfaceObjectListTemp, imageWidth, imageHeight,
+	d_boxfilter_rgba_y << <m_imageWidth / nthreads, nthreads, 0, streamToRun >> > (
+		d_surfaceObjectList, d_surfaceObjectListTemp, m_imageWidth, m_imageHeight,
 		mipLevels, filter_radius);
 
 	varySigma();

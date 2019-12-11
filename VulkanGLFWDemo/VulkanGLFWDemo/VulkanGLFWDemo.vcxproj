@@ -90,7 +90,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <ConformanceMode>true</ConformanceMode>
+      <ConformanceMode>false</ConformanceMode>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -114,7 +114,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <ConformanceMode>true</ConformanceMode>
+      <ConformanceMode>false</ConformanceMode>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
@@ -123,11 +123,42 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="VulkanBuffer.h" />
+    <ClInclude Include="VulkanCommandBuffer.h" />
+    <ClInclude Include="VulkanDevice.h" />
     <ClInclude Include="VulkanApp.h" />
+    <ClInclude Include="VulkanDebugger.h" />
+    <ClInclude Include="VulkanInstance.h" />
+    <ClInclude Include="VulkanMemory.h" />
+    <ClInclude Include="VulkanPipeline.h" />
+    <ClInclude Include="VulkanQueue.h" />
+    <ClInclude Include="VulkanRenderPass.h" />
+    <ClInclude Include="VulkanRenderTarget.h" />
+    <ClInclude Include="VulkanShader.h" />
+    <ClInclude Include="VulkanWindow.h" />
+    <ClInclude Include="VulkanUtil.h" />
+    <ClInclude Include="VulkanWindowGLFW.h" />
+    <ClInclude Include="VulkanSwapChain.h" />
+    <ClInclude Include="VulkanDescriptorSet.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="VulkanBuffer.cpp" />
+    <ClCompile Include="VulkanCommandBuffer.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="VulkanApp.cpp" />
+    <ClCompile Include="VulkanDebugger.cpp" />
+    <ClCompile Include="VulkanDescriptorSet.cpp" />
+    <ClCompile Include="VulkanDevice.cpp" />
+    <ClCompile Include="VulkanInstance.cpp" />
+    <ClCompile Include="VulkanMemory.cpp" />
+    <ClCompile Include="VulkanPipeline.cpp" />
+    <ClCompile Include="VulkanQueue.cpp" />
+    <ClCompile Include="VulkanRenderPass.cpp" />
+    <ClCompile Include="VulkanRenderTarget.cpp" />
+    <ClCompile Include="VulkanShader.cpp" />
+    <ClCompile Include="VulkanSwapChain.cpp" />
+    <ClCompile Include="VulkanUtil.cpp" />
+    <ClCompile Include="VulkanWindowGLFW.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shader\shader.frag" />
