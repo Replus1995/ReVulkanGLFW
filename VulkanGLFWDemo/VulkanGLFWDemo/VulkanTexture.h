@@ -3,6 +3,7 @@
 
 class FVulkanDevice;
 class FVulkanCommandBuffer;
+class FVulkanCommandBufferManager;
 
 class FVulkanTexture
 {
@@ -41,6 +42,9 @@ class FVulkanTexture2D : public FVulkanTexture
 public:
 	FVulkanTexture2D(const FVulkanDevice* InDevice, uint32_t InWidth, uint32_t InHeight, VkFormat InFormat);
 	~FVulkanTexture2D();
+
+	void UpdateFromData(const void* InSrcData, uint32_t InWidth, uint32_t InHeight);
+
 
 private:
 	uint32_t m_Width;

@@ -17,17 +17,6 @@ protected:
 	~FVulkanCommandBuffer();
 
 public:
-	
-	void AddWaitSemaphore(VkPipelineStageFlags InWaitFlags, const FVulkanSemaphore* InWaitSemaphore);
-	void AddSignalSemaphore(const FVulkanSemaphore* InSignalSemaphore);
-
-	void NeverUse();
-
-	void Begin();
-	void End();
-
-	void BeginRenderPass();
-	void EndRenderPass();
 
 	inline VkCommandBuffer GetHandle() const
 	{
@@ -39,6 +28,31 @@ public:
 		return m_Owner;
 	}
 
+	void AddWaitSemaphore(VkPipelineStageFlags InWaitFlags, const FVulkanSemaphore* InWaitSemaphore);
+	void AddSignalSemaphore(const FVulkanSemaphore* InSignalSemaphore);
+
+	enum class EState : uint8_t
+	{
+		ReadyForBegin,
+		IsInsideBegin,
+		IsInsideRenderPass,
+		HasEnded,
+		Submitted,
+		NotAllocated,
+	};
+
+
+
+	void Begin();
+	void End();
+
+	void BeginRenderPass();
+	void EndRenderPass();
+
+
+
+
+	EState State;
 private:
 	const FVulkanDevice* m_Device;
 	FVulkanCommandBufferManager* m_Owner;
@@ -52,7 +66,7 @@ private:
 
 	void AllocMemory();
 	void FreeMemory();
-	void Reset();
+	void ResetSemaphores();
 };
 
 

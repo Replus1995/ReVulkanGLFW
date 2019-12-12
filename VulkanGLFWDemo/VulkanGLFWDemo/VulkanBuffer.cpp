@@ -67,7 +67,7 @@ void FVulkanBuffer::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, Vk
 void FVulkanBuffer::CopyBuffer(FVulkanCommandBuffer* InCmdBuffer, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
 {
 
-	InCmdBuffer->Begin();
+	InCmdBuffer->Begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
 	VkBufferCopy copyRegion = {};
 	copyRegion.size = size;

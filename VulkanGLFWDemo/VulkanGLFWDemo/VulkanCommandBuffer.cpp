@@ -24,12 +24,6 @@ void FVulkanCommandBuffer::AddSignalSemaphore(const FVulkanSemaphore * InSignalS
 	m_SignalSemaphores.push_back(InSignalSemaphore->GetHandle());
 }
 
-void FVulkanCommandBuffer::NeverUse()
-{
-	Reset();
-	m_Owner->CollectUsedBuffer(this);
-}
-
 void FVulkanCommandBuffer::Begin()
 {
 	VkCommandBufferBeginInfo beginInfo = {};
@@ -66,7 +60,7 @@ void FVulkanCommandBuffer::FreeMemory()
 	
 }
 
-void FVulkanCommandBuffer::Reset()
+void FVulkanCommandBuffer::ResetSemaphores()
 {
 	m_WaitFlags.clear();
 	m_WaitSemaphores.clear();
@@ -81,7 +75,7 @@ FVulkanCommandBufferManager::FVulkanCommandBufferManager(const FVulkanDevice* In
 	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 	poolInfo.pNext = NULL;
 	poolInfo.queueFamilyIndex = m_Queue->GetFamilyIndex();
-	poolInfo.flags = 0; // Optional
+	poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT; // VK_COMMAND_POOL_CREATE_TRANSIENT_BIT
 
 	if (vkCreateCommandPool(m_Device->GetLogicalDevice(), &poolInfo, nullptr, &m_Pool) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create command pool!");

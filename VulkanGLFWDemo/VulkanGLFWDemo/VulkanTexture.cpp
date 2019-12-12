@@ -102,7 +102,7 @@ void FVulkanTexture::CreateTextureSampler(VkSampler& sampler)
 
 void FVulkanTexture::TransitionImageLayout(FVulkanCommandBuffer * InCmdBuffer, VkImage image, uint32_t levels, uint32_t layers, VkImageLayout oldLayout, VkImageLayout newLayout)
 {
-	InCmdBuffer->Begin();
+	InCmdBuffer->Begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
 	VkImageMemoryBarrier barrier = {};
 	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -163,7 +163,7 @@ void FVulkanTexture::TransitionImageLayout(FVulkanCommandBuffer * InCmdBuffer, V
 
 void FVulkanTexture::CopyBufferToImage(FVulkanCommandBuffer * InCmdBuffer, VkBuffer buffer, VkImage image, VkExtent3D extent, uint32_t layers)
 {
-	InCmdBuffer->Begin();
+	InCmdBuffer->Begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
 	VkBufferImageCopy region = {};
 	region.bufferOffset = 0;
