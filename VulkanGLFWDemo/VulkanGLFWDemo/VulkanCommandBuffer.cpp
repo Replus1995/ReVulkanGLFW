@@ -5,7 +5,7 @@
 
 
 FVulkanCommandBuffer::FVulkanCommandBuffer(const FVulkanDevice* InDevice, FVulkanCommandBufferManager* InOwner)
-	:m_Device(InDevice), m_Owner(InOwner)
+	:m_Device(InDevice), m_Owner(InOwner), m_State(EState::NotAllocated)
 {
 }
 
@@ -24,6 +24,11 @@ void FVulkanCommandBuffer::AddSignalSemaphore(const FVulkanSemaphore * InSignalS
 	m_SignalSemaphores.push_back(InSignalSemaphore->GetHandle());
 }
 
+void FVulkanCommandBuffer::AddDelayedTask(DelayedTaskPtr InTask)
+{
+	m_DelayedTasks.push_back(InTask);
+}
+
 void FVulkanCommandBuffer::Begin()
 {
 	VkCommandBufferBeginInfo beginInfo = {};
@@ -31,11 +36,40 @@ void FVulkanCommandBuffer::Begin()
 	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
 	vkBeginCommandBuffer(m_Handle, &beginInfo);
+
+	m_State = EState::IsInsideBegin;
 }
 
 void FVulkanCommandBuffer::End()
 {
 	vkEndCommandBuffer(m_Handle);
+	m_State = EState::HasEnded;
+}
+
+void FVulkanCommandBuffer::RefreshFenceStatus()
+{
+	if (m_State == EState::Submitted)
+	{
+		
+		if (m_Fence->IsSignaled())
+		{
+			vkResetCommandBuffer(m_Handle, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
+			ResetSemaphores();
+			m_Fence->Reset();
+
+			for (size_t i = 0; i < m_DelayedTasks.size(); i++)
+			{
+				m_DelayedTasks[i]->DoTask();
+			}
+
+			m_DelayedTasks.clear();
+
+			// Change state at the end to be safe
+			m_State = EState::ReadyForBegin;
+			m_Owner->CollectUsedBuffer(this);
+		}
+	}
+	
 }
 
 void FVulkanCommandBuffer::AllocMemory()
@@ -49,6 +83,7 @@ void FVulkanCommandBuffer::AllocMemory()
 	if (vkAllocateCommandBuffers(m_Device->GetLogicalDevice(), &allocInfo, &m_Handle) != VK_SUCCESS) {
 		throw std::runtime_error("failed to allocate command buffers!");
 	}
+	m_State = EState::ReadyForBegin;
 }
 
 void FVulkanCommandBuffer::FreeMemory()
@@ -57,7 +92,7 @@ void FVulkanCommandBuffer::FreeMemory()
 		vkFreeCommandBuffers(m_Device->GetLogicalDevice(), m_Owner->GetPool(), 1, &m_Handle);
 		m_Handle = VK_NULL_HANDLE;
 	}
-	
+	m_State = EState::NotAllocated;
 }
 
 void FVulkanCommandBuffer::ResetSemaphores()
@@ -109,6 +144,18 @@ FVulkanCommandBuffer * FVulkanCommandBufferManager::GetNewCommandBuffer()
 	m_CmdBuffers.push_back(CmdBuffer);
 
 	return CmdBuffer;
+}
+
+void FVulkanCommandBufferManager::RefreshFenceStatus(FVulkanCommandBuffer * SkipCmdBuffer)
+{
+	for (int i = 0; i < m_CmdBuffers.size(); ++i)
+	{
+		FVulkanCommandBuffer* cmdBuffer = m_CmdBuffers[i];
+		if (cmdBuffer != SkipCmdBuffer)
+		{
+			cmdBuffer->RefreshFenceStatus();
+		}
+	}
 }
 
 

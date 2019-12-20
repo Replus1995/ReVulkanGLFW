@@ -5,39 +5,18 @@
 #include "VulkanCommandBuffer.h"
 
 
-FVulkanBuffer::FVulkanBuffer(const FVulkanDevice * InDevice, uint64_t InBufferSize, VkBufferUsageFlags InUsage)
+FVulkanBufferBase::FVulkanBufferBase(const FVulkanDevice * InDevice, uint64_t InBufferSize)
 	:m_Device(InDevice), m_BufferSize(InBufferSize)
 {
-	CreateBuffer(m_BufferSize, InUsage | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_Buffer, m_Memory);
+	
 }
 
-FVulkanBuffer::~FVulkanBuffer()
+FVulkanBufferBase::~FVulkanBufferBase()
 {
-	vkDestroyBuffer(m_Device->GetLogicalDevice(), m_Buffer, nullptr);
-	vkFreeMemory(m_Device->GetLogicalDevice(), m_Memory, nullptr);
 }
 
-void FVulkanBuffer::UpdateBuffer(FVulkanCommandBuffer* InCmdBuffer, const void * InSrcData, uint64_t InSrcDataSize)
-{
-	if (InSrcDataSize > m_BufferSize) return;
 
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMemory;
-	CreateBuffer(InSrcDataSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-
-	void* dstData;
-	vkMapMemory(m_Device->GetLogicalDevice(), stagingBufferMemory, 0, InSrcDataSize, 0, &dstData);
-	memcpy(dstData, InSrcData, (size_t)InSrcDataSize);
-	vkUnmapMemory(m_Device->GetLogicalDevice(), stagingBufferMemory);
-
-	CopyBuffer(InCmdBuffer, stagingBuffer, m_Buffer, InSrcDataSize);
-
-	vkDestroyBuffer(m_Device->GetLogicalDevice(), stagingBuffer, nullptr);
-	vkFreeMemory(m_Device->GetLogicalDevice(), stagingBufferMemory, nullptr);
-
-}
-
-void FVulkanBuffer::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer & buffer, VkDeviceMemory & bufferMemory)
+void FVulkanBufferBase::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer & buffer, VkDeviceMemory & bufferMemory)
 {
 	VkBufferCreateInfo bufferInfo = {};
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -64,10 +43,10 @@ void FVulkanBuffer::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, Vk
 	vkBindBufferMemory(m_Device->GetLogicalDevice(), buffer, bufferMemory, 0);
 }
 
-void FVulkanBuffer::CopyBuffer(FVulkanCommandBuffer* InCmdBuffer, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
+void FVulkanBufferBase::CopyBuffer(FVulkanCommandBuffer* InCmdBuffer, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
 {
 
-	InCmdBuffer->Begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+	InCmdBuffer->Begin();
 
 	VkBufferCopy copyRegion = {};
 	copyRegion.size = size;
@@ -75,4 +54,79 @@ void FVulkanBuffer::CopyBuffer(FVulkanCommandBuffer* InCmdBuffer, VkBuffer srcBu
 
 	InCmdBuffer->End();
 	InCmdBuffer->GetOwner()->GetQueue()->Submit(InCmdBuffer);
+}
+
+FVulkanBuffer::FVulkanBuffer(const FVulkanDevice * InDevice, uint64_t InBufferSize, VkBufferUsageFlags InUsage)
+	:FVulkanBufferBase(InDevice, InBufferSize)
+{
+	CreateBuffer(m_BufferSize, InUsage | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_Buffer, m_Memory);
+}
+
+FVulkanBuffer::~FVulkanBuffer()
+{
+	vkDestroyBuffer(m_Device->GetLogicalDevice(), m_Buffer, nullptr);
+	vkFreeMemory(m_Device->GetLogicalDevice(), m_Memory, nullptr);
+}
+
+void FVulkanBuffer::UpdateBuffer(FVulkanCommandBuffer * InCmdBuffer, const void * InSrcData, uint64_t InSrcDataSize)
+{
+	if (InSrcDataSize > m_BufferSize) return;
+
+
+	FVulkanStagingBuffer* stagingBuffer = new FVulkanStagingBuffer(m_Device, InSrcDataSize);
+	stagingBuffer->UpdateFromData(InSrcData, InSrcDataSize);
+
+	class DestoryTask : public FVulkanCommandBuffer::DelayedTask
+	{
+	public:
+		DestoryTask(FVulkanStagingBuffer* buffer) : m_buffer(buffer) {};
+		~DestoryTask();
+
+		void DoTask() 
+		{
+			delete m_buffer;
+		};
+	private:
+		FVulkanStagingBuffer* m_buffer;
+	};
+	InCmdBuffer->AddDelayedTask(FVulkanCommandBuffer::DelayedTaskPtr(new DestoryTask(stagingBuffer)));
+
+	CopyBuffer(InCmdBuffer, stagingBuffer->GetBuffer(), m_Buffer, InSrcDataSize);
+
+	/*VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+	CreateBuffer(InSrcDataSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+	void* dstData;
+	vkMapMemory(m_Device->GetLogicalDevice(), stagingBufferMemory, 0, InSrcDataSize, 0, &dstData);
+	memcpy(dstData, InSrcData, (size_t)InSrcDataSize);
+	vkUnmapMemory(m_Device->GetLogicalDevice(), stagingBufferMemory);
+
+	CopyBuffer(InCmdBuffer, stagingBuffer, m_Buffer, InSrcDataSize);
+
+	vkDestroyBuffer(m_Device->GetLogicalDevice(), stagingBuffer, nullptr);
+	vkFreeMemory(m_Device->GetLogicalDevice(), stagingBufferMemory, nullptr);*/
+}
+
+FVulkanStagingBuffer::FVulkanStagingBuffer(const FVulkanDevice * InDevice, uint64_t InBufferSize)
+	:FVulkanBufferBase(InDevice, InBufferSize)
+{
+	CreateBuffer(m_BufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, m_Buffer, m_Memory);
+}
+
+FVulkanStagingBuffer::~FVulkanStagingBuffer()
+{
+	vkDestroyBuffer(m_Device->GetLogicalDevice(), m_Buffer, nullptr);
+	vkFreeMemory(m_Device->GetLogicalDevice(), m_Memory, nullptr);
+}
+
+void FVulkanStagingBuffer::UpdateFromData(const void * InSrcData, uint64_t InSrcDataSize)
+{
+	if (InSrcDataSize > m_BufferSize) return;
+
+	void* dstData;
+	vkMapMemory(m_Device->GetLogicalDevice(), m_Memory, 0, InSrcDataSize, 0, &dstData);
+	memcpy(dstData, InSrcData, (size_t)InSrcDataSize);
+	vkUnmapMemory(m_Device->GetLogicalDevice(), m_Memory);
+
 }

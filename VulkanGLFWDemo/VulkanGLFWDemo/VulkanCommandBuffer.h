@@ -6,6 +6,7 @@
 class FVulkanDevice;
 class FVulkanQueue;
 class FVulkanSemaphore;
+class FVulkanFence;
 
 class FVulkanCommandBuffer
 {
@@ -42,17 +43,43 @@ public:
 	};
 
 
+	class DelayedTask
+	{
+	public:
+		DelayedTask() {};
+		virtual ~DelayedTask() {};
+
+		virtual void DoTask() {};
+	};
+
+	typedef std::shared_ptr<DelayedTask> DelayedTaskPtr;
+
+	void AddDelayedTask(DelayedTaskPtr InTask);
 
 	void Begin();
 	void End();
 
-	void BeginRenderPass();
-	void EndRenderPass();
+	/*void BeginRenderPass();
+	void EndRenderPass();*/
 
+	inline bool HasBegun() const 
+	{
+		return m_State == EState::IsInsideBegin;
+	}
 
+	inline bool HasEnded() const
+	{
+		return m_State == EState::HasEnded;
+	}
 
+protected:
+	EState m_State;
+	FVulkanFence* m_Fence;
 
-	EState State;
+	void RefreshFenceStatus();
+
+	std::vector<DelayedTaskPtr> m_DelayedTasks;
+
 private:
 	const FVulkanDevice* m_Device;
 	FVulkanCommandBufferManager* m_Owner;
@@ -84,6 +111,8 @@ public:
 
 	FVulkanCommandBuffer* GetNewCommandBuffer();
 
+
+	void RefreshFenceStatus(FVulkanCommandBuffer* SkipCmdBuffer = nullptr);
 
 protected:
 	friend class FVulkanCommandBuffer;

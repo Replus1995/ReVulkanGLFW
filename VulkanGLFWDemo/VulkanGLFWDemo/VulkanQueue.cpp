@@ -32,9 +32,12 @@ void FVulkanQueue::Submit(FVulkanCommandBuffer * CmdBuffer) const
 	submitInfo.pWaitDstStageMask = CmdBuffer->m_WaitFlags.data();
 	///
 
-	if (vkQueueSubmit(m_Handle, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
+	if (vkQueueSubmit(m_Handle, 1, &submitInfo, CmdBuffer->m_Fence->GetHandle()) != VK_SUCCESS) {
 		throw std::runtime_error("failed to submit draw command buffer!");
 	}
+
+	CmdBuffer->m_State = FVulkanCommandBuffer::EState::Submitted;
+	CmdBuffer->GetOwner()->RefreshFenceStatus(CmdBuffer);
 }
 
 
