@@ -3,6 +3,7 @@
 #include <set>
 #include <array>
 #include <vector>
+#include <stdexcept>
 
 #define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>

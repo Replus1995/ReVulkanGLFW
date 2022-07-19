@@ -3,10 +3,11 @@
 #include "VulkanDevice.h"
 #include "VulkanQueue.h"
 #include "VulkanCommandBuffer.h"
+#include <stdexcept>
 
 
 FVulkanBufferBase::FVulkanBufferBase(const FVulkanDevice * InDevice, uint64_t InBufferSize)
-	:m_Device(InDevice), m_BufferSize(InBufferSize)
+	:m_Device(InDevice), m_BufferSize(InBufferSize), m_Buffer(NULL), m_Memory(NULL)
 {
 	
 }
@@ -80,7 +81,7 @@ void FVulkanBuffer::UpdateBuffer(FVulkanCommandBuffer * InCmdBuffer, const void 
 	{
 	public:
 		DestoryTask(FVulkanStagingBuffer* buffer) : m_buffer(buffer) {};
-		~DestoryTask();
+		~DestoryTask() {};
 
 		void DoTask() 
 		{

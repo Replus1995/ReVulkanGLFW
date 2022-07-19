@@ -112,7 +112,7 @@ void FVulkanFenceManager::DestoryFences()
 {
 	for (size_t i = 0; i < m_Fences.size(); i++)
 	{
-		if (m_Fences[i]->GetHandle) {
+		if (m_Fences[i]->GetHandle()) {
 			m_Fences[i]->Free();
 		}
 		delete m_Fences[i];

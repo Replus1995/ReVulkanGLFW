@@ -180,7 +180,7 @@ void FVulkanTexture::CopyBufferToImage(FVulkanCommandBuffer * InCmdBuffer, VkBuf
 	region.imageExtent = extent;
 
 	vkCmdCopyBufferToImage(
-		InCmdBuffer->GetHandle,
+		InCmdBuffer->GetHandle(),
 		buffer,
 		image,
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -823,7 +823,7 @@ void FVulkanTexture2D::UpdateFromData(const void * InSrcData, uint32_t InWidth, 
 	{
 	public:
 		DestoryTask(FVulkanStagingBuffer* buffer) : m_buffer(buffer) {};
-		~DestoryTask();
+		~DestoryTask() {};
 
 		void DoTask()
 		{

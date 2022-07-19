@@ -372,12 +372,9 @@ private:
 	VkBuffer m_TexStagingBuffer;
 	VkDeviceMemory m_TexStagingBufferMemory;
 
-
-
-
-
 	const std::vector<const char*> validationLayers = {
-		"VK_LAYER_LUNARG_standard_validation"
+		//"VK_LAYER_LUNARG_standard_validation"
+		"VK_LAYER_KHRONOS_validation"
 	};
 
 #ifdef NDEBUG

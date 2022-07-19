@@ -2,6 +2,7 @@
 #include "VulkanDevice.h"
 #include "VulkanQueue.h"
 #include "VulkanMemory.h"
+#include <stdexcept>
 
 
 FVulkanCommandBuffer::FVulkanCommandBuffer(const FVulkanDevice* InDevice, FVulkanCommandBufferManager* InOwner)
